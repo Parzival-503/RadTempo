@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>RadTempo</title>
+<link rel="stylesheet" href="../common/theme.css">
+<style>
+  body { height: 120px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 8px; }
+  body.below { justify-content: flex-start; }
+  .t { max-width: 344px; display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px 10px 11px; border-radius: 13px;
+       font-size: 12.5px; line-height: 1.4; color: var(--ink); opacity: 0; transform: translateY(6px) scale(.98);
+       transition: opacity .22s var(--ease), transform .22s var(--ease); white-space: pre-line; }
+  .t.on { opacity: 1; transform: none; }
+  .t .ic { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; flex: none; background: var(--accent-soft); color: #9ec2ff; }
+  .t.good .ic { background: rgba(95,220,168,.15); color: var(--good); }
+  .t.warn .ic { background: rgba(255,157,176,.15); color: var(--warn); }
+  .t .ic svg.i { width: 14px; height: 14px; stroke-width: 2.2; }
+  .t .tx { padding-top: 2px; }
+</style>
+</head>
+<body>
+<div id="t" class="t glass"><span class="ic"></span><span class="tx"></span></div>
+<script src="../common/icons.js"></script>
+<script src="toast.js"></script>
+</body>
+</html>

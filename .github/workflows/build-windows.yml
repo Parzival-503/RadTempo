@@ -1,0 +1,214 @@
+# RadTempo: checks, real-Windows end-to-end test, installer + portable exe.
+#
+# Every push:
+#   1. Linux: unit tests, the classic script's checks, the helper's static
+#      checks, and the end-to-end test of the real app (every window and
+#      dialog, a full study) under a virtual screen.
+#   2. Windows: load the helper in real AutoHotkey v1.1 (--selftest), compile
+#      it into RadTempoHelper.exe, build the app, then run the end-to-end
+#      test again with the real helper, REAL F4 / F12 key presses and a
+#      stand-in PowerScribe window; then install over and uninstall a running
+#      copy. Only if all of that passes are the files published to
+#        https://github.com/Parzival-503/radtempo/releases/tag/radtempo-latest
+#   Screenshots from both runs are kept as the "e2e-screenshots-*" artifacts.
+name: Build Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'claude/**']
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AHK_VERSION: 1.1.37.02
+
+jobs:
+  checks:
+    name: Checks + Linux end-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+      - name: Helper static checks
+        run: python3 tools/helper_check.py
+      - name: Classic script checks (RadTempo.ahk is kept working)
+        run: |
+          python3 tools/ahk_check.py RadTempo.ahk
+          node tools/dash_harness.js RadTempo.ahk
+          python3 tools/build_dashboard.py --check
+      - name: End-to-end (real app, virtual screen)
+        run: |
+          sudo apt-get install -y xvfb >/dev/null 2>&1 || true
+          xvfb-run -a -s "-screen 0 1600x1000x24" node tests-e2e/run.js
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-screenshots-linux
+          path: e2e-shots/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  windows:
+    name: Windows - helper check, build, real-key end-to-end
+    needs: checks
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - run: npm ci
+
+      - name: Get AutoHotkey v1.1 (to check and compile the helper)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'ahk'
+          $zip = Join-Path $env:RUNNER_TEMP 'ahk.zip'
+          $urls = @(
+            "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$env:AHK_VERSION/AutoHotkey_$env:AHK_VERSION.zip",
+            "https://www.autohotkey.com/download/1.1/AutoHotkey_$env:AHK_VERSION.zip")
+          foreach ($u in $urls) { try { Invoke-WebRequest $u -OutFile $zip -UseBasicParsing; break } catch { Write-Host "failed: $u" } }
+          Expand-Archive $zip -DestinationPath $dir -Force
+          "AHK_DIR=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Helper loads in real AutoHotkey (syntax + startup)
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $out = & "$env:AHK_DIR\AutoHotkeyU64.exe" /ErrorStdOut helper\RadTempoHelper.ahk --selftest 2>&1 | Out-String
+          Write-Host $out
+          if ($out -notmatch 'SELFTEST OK') { throw 'The helper did not load cleanly in AutoHotkey.' }
+
+      - name: Compile the helper (and the stand-in PowerScribe for the test)
+        shell: pwsh
+        timeout-minutes: 6
+        run: |
+          function Shot($name) {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            New-Item -ItemType Directory -Force e2e-shots | Out-Null
+            $bmp.Save("e2e-shots\$name.png"); Write-Host "screenshot: e2e-shots\$name.png"
+          }
+          function RunFor($exe, $argList, $secs) {
+            $psi = New-Object System.Diagnostics.ProcessStartInfo $exe
+            $psi.Arguments = $argList; $psi.UseShellExecute = $false
+            $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
+            $p = [System.Diagnostics.Process]::Start($psi)
+            $o = $p.StandardOutput.ReadToEndAsync(); $e = $p.StandardError.ReadToEndAsync()
+            if (-not $p.WaitForExit($secs * 1000)) { return @{ timedOut = $true; proc = $p; out = '' } }
+            return @{ timedOut = $false; code = $p.ExitCode; out = ($o.Result + $e.Result) }
+          }
+          $ahk2exe = Get-ChildItem -Recurse $env:AHK_DIR -Filter Ahk2Exe.exe | Select-Object -First 1
+          $base = Get-ChildItem -Recurse $env:AHK_DIR -Filter 'Unicode 64-bit.bin' | Select-Object -First 1
+          $baseArg = if ($base) { "/bin `"$($base.FullName)`"" } else { "/base `"$env:AHK_DIR\AutoHotkeyU64.exe`"" }
+          $mode = 'none'
+          if ($ahk2exe) {
+            $r = RunFor $ahk2exe.FullName "/in helper\RadTempoHelper.ahk /out helper\RadTempoHelper.exe /icon assets\icon.ico $baseArg /silent verbose" 120
+            if ($r.timedOut) { Shot 'ahk2exe-stuck'; $r.proc.Kill() } else { Write-Host "Ahk2Exe exit $($r.code): $($r.out)" }
+            if ((Test-Path helper\RadTempoHelper.exe) -and -not $r.timedOut -and $r.code -eq 0) { $mode = 'compiled' }
+            New-Item -ItemType Directory -Force tests-e2e\bin | Out-Null
+            $r2 = RunFor $ahk2exe.FullName "/in tests-e2e\fake_ps.ahk /out tests-e2e\bin\Nuance.PowerScribe360.exe $baseArg /silent" 120
+            if ($r2.timedOut) { $r2.proc.Kill() }
+          }
+          if ($mode -ne 'compiled') {
+            # Fallback that needs no compiler: AutoHotkey renamed to
+            # RadTempoHelper.exe; the app passes it the script.
+            Remove-Item -Force -ErrorAction SilentlyContinue helper\RadTempoHelper.exe
+            Copy-Item "$env:AHK_DIR\AutoHotkeyU64.exe" helper\RadTempoHelper.exe
+            Set-Content helper\RadTempoHelper.interpreter 'AutoHotkey v1.1 renamed; the app passes it the script.'
+            $mode = 'bundled-interpreter'
+          }
+          if (-not (Test-Path tests-e2e\bin\Nuance.PowerScribe360.exe)) {
+            # Same trick for the stand-in: AutoHotkey under PowerScribe's name.
+            Copy-Item "$env:AHK_DIR\AutoHotkeyU64.exe" tests-e2e\bin\Nuance.PowerScribe360.exe
+            Copy-Item tests-e2e\fake_ps.ahk tests-e2e\bin\Nuance.PowerScribe360.ahk
+          }
+          Write-Host "helper mode: $mode"
+          "HELPER_MODE=$mode" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $st = if ($mode -eq 'compiled') { RunFor (Resolve-Path helper\RadTempoHelper.exe) '--selftest' 60 } else { RunFor (Resolve-Path helper\RadTempoHelper.exe) '/ErrorStdOut helper\RadTempoHelper.ahk --selftest' 60 }
+          if ($st.timedOut) { Shot 'helper-selftest-stuck'; $st.proc.Kill(); throw 'The helper exe did not exit from --selftest within 60 s.' }
+          Write-Host "selftest exit $($st.code): $($st.out)"
+          if ($st.code -ne 0) { throw "helper exe selftest exit $($st.code)" }
+
+      - name: Ship only the compiled helper (no loose script beside it)
+        # A compiled .exe is self-contained, so the .ahk is dead weight next
+        # to it - and a renamed script engine running a loose script is a
+        # pattern endpoint security flags. The interpreter-fallback build is
+        # the one case that still needs the script shipped.
+        if: env.HELPER_MODE == 'compiled'
+        shell: pwsh
+        run: Remove-Item -Force helper\RadTempoHelper.ahk
+
+      - name: Build the app (installer + single-file portable exe, helper inside)
+        run: npm run dist
+
+      - name: End-to-end on Windows (real helper, real F4 / F12, stand-in PowerScribe)
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          $env:RT_APP_EXE = (Resolve-Path 'dist\win-unpacked\RadTempo.exe').Path
+          $env:AHK_EXE = "$env:AHK_DIR\AutoHotkeyU64.exe"
+          $env:RT_FAKE_PS = (Resolve-Path 'tests-e2e\bin\Nuance.PowerScribe360.exe').Path
+          node tests-e2e\run.js
+
+      - name: Install over a running copy, then uninstall it while running
+        shell: pwsh
+        timeout-minutes: 10
+        run: ./tests-e2e/installer.ps1
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-screenshots-windows
+          path: e2e-shots/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload the installer + portable exe
+        uses: actions/upload-artifact@v7
+        with:
+          name: RadTempo-Windows
+          path: |
+            dist/RadTempo-Setup.exe
+            dist/RadTempo-Portable.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish the installer to "radtempo-latest" (fixed link)
+        uses: svenstaro/upload-release-action@2.11.5
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: radtempo-latest
+          release_name: RadTempo (latest build)
+          body: |
+            Latest RadTempo. Two ways to get it, same app - each is ONE file:
+            - "RadTempo-Setup.exe": run it; installs for your Windows user only (no admin), adds a Start menu entry and starts with Windows.
+            - "RadTempo-Portable.exe": nothing to install. Put it somewhere permanent (e.g. Documents) and double-click it. For PCs that block installers.
+            History and settings live in %APPDATA%\RadTempo (or a folder you choose, e.g. OneDrive), so updating never touches them.
+            This build passed the end-to-end test on a Windows machine with real F4 / F12 presses.
+          prerelease: true
+          overwrite: true
+          file: dist/RadTempo-Setup.exe
+
+      - name: Publish the portable exe too
+        uses: svenstaro/upload-release-action@2.11.5
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: radtempo-latest
+          prerelease: true
+          overwrite: true
+          file: dist/RadTempo-Portable.exe
+          asset_name: RadTempo-Portable.exe

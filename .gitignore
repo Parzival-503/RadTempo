@@ -1,0 +1,30 @@
+# Compiled AutoHotkey executables
+*.exe
+Ahk2Exe.*
+
+# Logs / temp
+*.log
+*.tmp
+*.bak
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.code-workspace
+
+# Local dev deps for tools/ (playwright, chart.js)
+node_modules
+node_modules/
+.preview/
+
+# Electron app build output and test screenshots
+dist/
+e2e-shots/
+tests-e2e/bin/
+__pycache__/
+*.interpreter

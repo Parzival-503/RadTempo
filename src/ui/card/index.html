@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>RadTempo wellness</title>
+<link rel="stylesheet" href="../common/theme.css">
+<style>
+  body { padding: 12px; }
+  .card { position: relative; width: 356px; overflow: hidden; padding: 18px 18px 16px; opacity: 0; transform: translateY(10px) scale(.98);
+          transition: opacity .3s var(--ease), transform .3s var(--ease); }
+  .card.on { opacity: 1; transform: none; }
+  .accent { position: absolute; left: 0; top: 0; right: 0; height: 3px; background: rgba(255,255,255,.06); }
+  .accent i { display: block; height: 100%; background: var(--c); transition: width .4s var(--ease); }
+  .head { display: flex; gap: 14px; align-items: center; }
+  .icon { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; flex: none;
+          background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent); }
+  .icon svg.i { width: 24px; height: 24px; stroke-width: 1.9; }
+  .cat { font-size: 9.5px; font-weight: 700; letter-spacing: 1.3px; color: var(--c); white-space: pre; }
+  .title { font-size: 17px; font-weight: 700; color: var(--ink); margin-top: 3px; letter-spacing: -.2px; }
+  .body { font-size: 12.5px; line-height: 1.5; color: var(--ink2); margin: 12px 0 14px; }
+  .meter { height: 6px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, #12b26a, #5fdca8); transition: width .3s linear; }
+  .foot { font-size: 11px; color: var(--mut); margin-top: 7px; min-height: 15px; }
+  .btns { display: flex; gap: 8px; margin-top: 12px; }
+  .btns button { flex: 1; height: 32px; border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--ink2);
+                 background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--line); transition: background .15s, color .15s; }
+  .btns button:hover { background: rgba(255,255,255,.12); color: var(--ink); }
+  .btns button:first-child { background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--ink); }
+</style>
+</head>
+<body>
+<div id="card" class="card glass">
+  <div class="accent"><i id="accent"></i></div>
+  <div class="head">
+    <div id="icon" class="icon"></div>
+    <div><div id="cat" class="cat"></div><div id="title" class="title"></div></div>
+  </div>
+  <div id="body" class="body"></div>
+  <div class="meter"><i id="meter"></i></div>
+  <div id="foot" class="foot"></div>
+  <div id="btns" class="btns"></div>
+</div>
+<script src="../common/icons.js"></script>
+<script src="card.js"></script>
+</body>
+</html>

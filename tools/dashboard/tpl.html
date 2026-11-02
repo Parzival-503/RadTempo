@@ -1,0 +1,355 @@
+<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'>
+<title>RadTempo Dashboard</title>
+<!--DATA-->
+<script src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--pg:#0b0b16;--sf:#15152a;--sf2:#101024;--bd:#262647;--grid:#1e1e3a;
+--ink:#ffffff;--ink2:#b8b8cf;--mut:#7a7a99;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
+--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#d03b3b;
+--r:14px}
+html{-webkit-text-size-adjust:100%}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--pg);color:var(--ink2);
+padding:max(14px,env(safe-area-inset-top)) clamp(12px,3vw,32px) 48px;line-height:1.45;-webkit-font-smoothing:antialiased}
+h1,h2,h3{color:var(--ink);font-weight:650;letter-spacing:-.01em}
+/* header */
+.hdr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 0 12px}
+.hdr h1{font-size:clamp(17px,4.4vw,22px)}
+.hdr .sp{flex:1 1 auto}
+.badge{display:inline-flex;align-items:center;gap:5px;background:var(--sf);border:1px solid var(--bd);
+color:var(--ink2);padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.badge.live{background:#0f2a20;border-color:#1d5140;color:#6fe0b0}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+/* filter row - one row, above everything, scopes all */
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 0 12px}
+.seg{display:inline-flex;background:var(--sf);border:1px solid var(--bd);border-radius:999px;padding:3px;gap:2px}
+.seg button{appearance:none;background:transparent;border:0;color:var(--mut);font:inherit;font-size:12px;
+font-weight:600;padding:8px 15px;min-height:36px;border-radius:999px;cursor:pointer;transition:.15s;white-space:nowrap}
+.seg button:hover{color:var(--ink2);background:#ffffff0d}
+.seg button[aria-pressed=true]{background:var(--s1);color:#fff}
+.flabel{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:1.1px;font-weight:600}
+/* tabs */
+.tabs{position:sticky;top:0;z-index:20;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+background:color-mix(in srgb,var(--pg) 88%,transparent);backdrop-filter:blur(12px);
+border-bottom:1px solid var(--bd);margin:0 calc(-1*clamp(12px,3vw,32px));padding:6px clamp(12px,3vw,32px)}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{appearance:none;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--mut);
+font:inherit;font-size:13px;font-weight:600;padding:11px 13px;min-height:44px;cursor:pointer;white-space:nowrap;transition:.15s}
+.tabs button:hover{color:var(--ink2)}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--s1)}
+.pane{display:none;animation:fade .22s ease}
+.pane.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+/* layout */
+.stit{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:1.6px;margin:26px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-top:14px}
+.bx{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:clamp(14px,2.2vw,20px);margin-top:14px}
+.bx h2{font-size:13.5px;margin-bottom:3px}
+.bx .desc{font-size:11px;color:var(--mut);margin-bottom:14px;line-height:1.5}
+.row2 .bx{margin-top:0}
+/* cards */
+.cd{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;transition:transform .14s,border-color .14s}
+.cd:hover{transform:translateY(-2px);border-color:#37376b}
+.cd .lb{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1.1px;margin-bottom:6px;font-weight:600}
+.cd .vl{font-size:clamp(20px,5vw,25px);font-weight:750;color:var(--ink);line-height:1.1}
+.cd .sb{font-size:10.5px;color:var(--mut);margin-top:5px}
+.cd .sb b{color:var(--ink2);font-weight:650}
+/* hero */
+/* The cost of drifting, stated as loudly as the day's output. Same visual
+   weight as the hero number, deliberately - it is the figure meant to sting. */
+.costBanner{background:linear-gradient(150deg,#2f1421,#1a1020 65%);border:1px solid #5a2540;
+border-radius:16px;padding:clamp(15px,3vw,22px);margin-bottom:16px;display:flex;
+align-items:center;gap:clamp(12px,3vw,26px);flex-wrap:wrap}
+.costBanner .big{font-size:clamp(40px,11vw,56px);font-weight:800;color:#ff9db0;line-height:.95;letter-spacing:-.025em}
+.costBanner .cap{font-size:10.5px;color:#c79aa8;text-transform:uppercase;letter-spacing:1.7px;font-weight:700;margin-top:7px}
+.costBanner .side{flex:1 1 210px;font-size:12.5px;color:#f0ccd6;line-height:1.65}
+.costBanner .side b{color:#fff}
+.costBanner .side .win{color:#6fe0b0;font-weight:700}
+.hero{background:linear-gradient(150deg,#191940,#131328 60%);border:1px solid #30306a;border-radius:18px;padding:clamp(16px,3vw,24px)}
+.heroTop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.heroTop .t{font-size:16px;font-weight:700;color:var(--ink)}
+.heroTop .s{font-size:11.5px;color:var(--mut)}
+.heroMain{display:flex;align-items:center;gap:clamp(14px,3vw,26px);flex-wrap:wrap}
+.heroNum{font-size:clamp(44px,12vw,60px);font-weight:800;color:var(--ink);line-height:.95;letter-spacing:-.03em}
+.heroUnit{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:1.6px;font-weight:700;margin-top:6px}
+.ring{flex:none}
+.heroSide{flex:1 1 190px;min-width:170px}
+.meter{height:9px;background:#0c0c1e;border:1px solid var(--bd);border-radius:999px;overflow:hidden}
+.meter>i{display:block;height:100%;border-radius:999px;transition:width .8s cubic-bezier(.22,1,.36,1)}
+.mrow{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:7px}
+/* flow strip */
+.flow{display:flex;height:15px;border-radius:6px;overflow:hidden;background:#0c0c1e;border:1px solid var(--bd)}
+.flow>div{min-width:1px;transition:filter .12s}
+.flow>div:hover{filter:brightness(1.45)}
+.fRow{display:grid;grid-template-columns:52px 62px 1fr;align-items:center;gap:9px;margin-bottom:7px}
+.fRow .fDt{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.fRow .fId{font-size:11px;font-weight:650;text-align:right;font-variant-numeric:tabular-nums}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin-top:12px;align-items:center}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+/* callouts */
+.alert{margin-top:14px;background:#2a1420;border:1px solid #5a2540;border-radius:11px;padding:12px 15px;font-size:12.5px;color:#f2ccd6}
+.alert b{color:#ff9db0}
+.good{margin-top:14px;background:#0f2a20;border:1px solid #1d5140;border-radius:11px;padding:12px 15px;font-size:12.5px;color:#a8e0cc}
+.good b{color:#6fe0b0}
+.ins{list-style:none;display:grid;gap:8px}
+.ins li{background:var(--sf2);border-left:3px solid var(--s1);border-radius:0 9px 9px 0;padding:10px 14px;font-size:12px;color:var(--ink2)}
+.ins li b{color:var(--ink)}
+.hi{color:#6fe0b0;font-weight:650}.lo{color:#ff9db0;font-weight:650}
+/* chips */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+/* label inside a colored fill: ink picked by fill luminance (all 5 modality
+   fills sit in the mid band, where dark ink clears 4.9-6.3:1 and white fails) */
+.mb{display:inline-block;padding:3px 9px;border-radius:6px;font-size:10.5px;font-weight:700;color:#0b0b16}
+.mb.CR{background:var(--s3)}.mb.CT{background:var(--s4)}.mb.MR{background:var(--s1)}
+.mb.US{background:var(--s5)}.mb.PET{background:var(--s7)}
+/* the bank: the one place a big number is the point, so it gets hero weight */
+.vault{background:linear-gradient(150deg,#0f2a20,#101a26 65%);border:1px solid #1d5140;
+border-radius:16px;padding:clamp(16px,3vw,24px);display:flex;align-items:center;
+gap:clamp(14px,3vw,28px);flex-wrap:wrap}
+.vault .vLb{font-size:10.5px;color:#6fe0b0;text-transform:uppercase;letter-spacing:1.7px;font-weight:700}
+.vault .vBig{font-size:clamp(42px,12vw,60px);font-weight:800;color:#6fe0b0;line-height:.95;
+letter-spacing:-.03em;margin-top:6px;font-variant-numeric:tabular-nums}
+.vault .vSub{font-size:12px;color:#a8e0cc;margin-top:8px}
+.vault .vSide{flex:1 1 210px;font-size:12.5px;color:#a8e0cc;line-height:1.7}
+.vault .vSide b{color:#fff}
+.formula{display:grid;gap:9px}
+.fmRow{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:baseline;
+background:var(--sf2);border-left:3px solid var(--s3);border-radius:0 9px 9px 0;padding:10px 14px}
+.fmRow .fmL{font-size:12px;color:var(--ink2)}
+.fmRow .fmL b{color:var(--ink)}
+.fmRow .fmV{font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;
+font-variant-numeric:tabular-nums}
+.fmRow.mul{border-left-color:var(--s7)}
+.fmRow.tot{border-left-color:var(--good);background:#101f18}
+.fmRow.tot .fmV{color:#6fe0b0;font-size:15px}
+/* filler math: an IVU deficit is not actionable, a count of studies is */
+.fillGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:11px}
+.fq{background:var(--sf2);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;
+display:flex;align-items:center;gap:14px}
+.fq .qn{font-size:clamp(30px,8vw,38px);font-weight:800;line-height:.95;letter-spacing:-.025em;
+flex:none;min-width:50px;text-align:center;color:var(--ink);font-variant-numeric:tabular-nums}
+.fq .qt{font-size:12.5px;color:var(--ink2);line-height:1.45}
+.fq .qt b{color:var(--ink)}
+.fq .qs{font-size:10.5px;color:var(--mut);margin-top:5px}
+.fq.dn{border-color:#5a2540;background:#1e1220}
+.fq.dn .qn{color:#ff9db0}
+.fq.up{border-color:#1d5140;background:#0f2018}
+.fq.up .qn{color:#6fe0b0}
+.cred{color:#6fe0b0;font-weight:650;white-space:nowrap}
+/* streak */
+.streaks{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:11px}
+.stk{background:var(--sf2);border:1px solid var(--bd);border-radius:11px;padding:13px 14px;text-align:center}
+.stk .n{font-size:26px;font-weight:800;color:var(--ink);line-height:1}
+.stk .l{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin-top:6px;font-weight:600}
+.stk .e{font-size:19px}
+/* charts + tables */
+.cwrap{position:relative;height:min(46vw,270px);min-height:190px}
+.cwrap.tall{height:min(60vw,320px)}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:420px}
+th{text-align:left;color:var(--mut);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--bd);
+font-size:10px;letter-spacing:.9px;text-transform:uppercase;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid #16162e;font-variant-numeric:tabular-nums;white-space:nowrap}
+td:first-child{white-space:normal;min-width:130px}
+tbody tr:hover td{background:#1b1b38}
+.up{color:#6fe0b0}.dn{color:#ff9db0}.nt{color:var(--mut)}
+.tot{color:#a9c8f5;font-weight:700}
+select{background:var(--sf2);color:var(--ink2);border:1px solid var(--bd);padding:9px 12px;border-radius:9px;
+font:inherit;font-size:12.5px;min-height:40px;max-width:100%;margin-bottom:12px}
+.tgl{appearance:none;background:var(--sf2);border:1px solid var(--bd);color:var(--mut);font:inherit;font-size:11px;
+font-weight:600;padding:6px 11px;min-height:32px;border-radius:8px;cursor:pointer;margin-bottom:10px}
+.tgl:hover{color:var(--ink2);border-color:#37376b}
+.tv{display:none;margin-top:6px}.tv.on{display:block}
+.empty{font-size:13px;color:var(--mut);padding:10px 0}
+@media(max-width:560px){.fRow{grid-template-columns:44px 54px 1fr;gap:7px}
+table{font-size:11.5px}.stit{margin:20px 0 10px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<div class='hdr'><h1>RadTempo</h1><span class='sp'></span>
+<span class='badge' id='bDr'></span><span class='badge live' id='bSh' style='display:none'><i class='dot'></i><span id='bShT'></span></span></div>
+<div class='filters'><span class='flabel'>Range</span><div class='seg' id='rng'>
+<button data-d='7'>7d</button><button data-d='30'>30d</button><button data-d='90'>90d</button><button data-d='0'>All</button></div></div>
+<div class='tabs' role='tablist' id='tabs'>
+<button role='tab' data-p='today' aria-selected='true'>Today</button>
+<button role='tab' data-p='focus' aria-selected='false'>Focus</button>
+<button role='tab' data-p='rhythm' aria-selected='false'>Rhythm</button>
+<button role='tab' data-p='bank' aria-selected='false'>Bank</button>
+<button role='tab' data-p='shifts' aria-selected='false'>Shifts</button>
+<button role='tab' data-p='exams' aria-selected='false'>Exams</button>
+<button role='tab' data-p='log' aria-selected='false'>Log</button></div>
+
+<section class='pane on' id='p-today'><div id='heroWrap'></div>
+<div class='stit'>Today at a glance</div><div class='grid' id='tGrid'></div>
+<div class='bx' id='bxTFlow' style='display:none'><h2>Today&#39;s flow</h2>
+<div class='desc'>Green is reading, red is an idle gap between studies. Long breaks are omitted.</div>
+<div id='tFlow'></div><div class='leg'><span><i style='background:var(--good)'></i>reading</span>
+<span><i style='background:var(--crit)'></i>idle gap</span><span><i style='background:#0c0c1e'></i>break omitted</span></div>
+<div id='tAlert'></div></div>
+<div class='bx' id='bxFill' style='display:none'><h2 id='fillH'>As a unit</h2>
+<div class='desc' id='fillD'></div>
+<div class='fillGrid' id='fillGrid'></div>
+<div id='fillNote' style='font-size:12.5px;color:var(--ink2);line-height:1.65;margin-top:13px'></div></div>
+<div id='tNotes'></div></section>
+
+<section class='pane' id='p-focus'>
+<div class='costBanner' id='costBanner' style='display:none'></div>
+<div class='bx' id='bxGoal' style='display:none'><h2>Daily goal &mdash; consistency</h2>
+<div class='desc'>Only days you actually committed to a goal are counted. Bars are the IVU you actually
+delivered and the dash is that day&#39;s goal &mdash; on one scale, so a tall bar that misses is visibly more
+work than a short one that clears. &#10003; / &#10007; on the date marks the outcome.</div>
+<div class='streaks' id='goalStk' style='margin-bottom:14px'></div>
+<div id='goalNote' style='font-size:12.5px;color:var(--ink2);line-height:1.65;margin-bottom:14px'></div>
+<button class='tgl' data-tv='tvGoal'>Table view</button>
+<div class='cwrap'><canvas id='chGoal'></canvas></div>
+<div class='tv' id='tvGoal'></div></div>
+<div class='stit'>Focus scoreboard</div><div class='streaks' id='fStreaks'></div>
+<div class='bx' id='bxPar' style='display:none'><h2>Par</h2>
+<div class='desc'>Par is your median <b>engaged</b> time for that exam type, so you beat it by not drifting &mdash; never by reading faster. Time spent away from the keyboard doesn&#39;t count against you.</div>
+<div id='parSum' style='font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:13px'></div>
+<div class='tblwrap'><table id='tPar'><thead><tr><th>Exam</th><th>Bets</th><th>Under par</th>
+<th>Win rate</th><th>Typical vs par</th></tr></thead><tbody></tbody></table></div></div>
+<div class='bx'><h2>The prize</h2><div class='desc'>What fragmentation is costing you, measured from your own log</div>
+<div id='fHead' style='font-size:13px;color:var(--ink2);line-height:1.65'></div></div>
+<div class='bx'><h2>Where each day goes</h2><div class='desc'>One strip per worked day. Tighter, greener strips mean more back-to-back reading.</div>
+<div id='fStrips'></div><div class='leg'><span><i style='background:var(--good)'></i>reading</span>
+<span><i style='background:var(--crit)'></i>idle gap</span><span><i style='background:#0c0c1e'></i>break omitted</span></div></div>
+<div class='row2'>
+<div class='bx'><h2>Idle minutes per day</h2><div class='desc'>Time lost to gaps of 2-30 min between studies</div>
+<button class='tgl' data-tv='tvIdle'>Table view</button><div class='cwrap'><canvas id='chIdle'></canvas></div>
+<div class='tv' id='tvIdle'></div></div>
+<div class='bx'><h2>Focus score per day</h2><div class='desc'>Share of engaged time actually spent reading</div>
+<button class='tgl' data-tv='tvFoc'>Table view</button><div class='cwrap'><canvas id='chFoc'></canvas></div>
+<div class='tv' id='tvFoc'></div></div></div>
+<div class='bx'><h2>The multitask tax</h2><div class='desc'>Measured restart cost of interruptions</div>
+<div id='fTax' style='font-size:12.5px;line-height:1.7'></div></div></section>
+
+<section class='pane' id='p-rhythm'>
+<div id='rhEmpty' class='empty' style='display:none'>Not enough worked days in this range to read a pattern &mdash; needs at least 5.</div>
+<div id='rhBody' style='display:none'>
+<div class='stit'>Your clock</div><div class='streaks' id='rhStk'></div>
+<div class='bx'><h2 id='rhQ'>Does starting earlier get you out earlier?</h2>
+<div class='desc'>One dot per worked day: when the first study opened, against when the last one was signed.
+The dashed line is the fitted trend. Association, not proof &mdash; the day&#39;s workload isn&#39;t held constant.</div>
+<div id='rhVerdict' style='font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:13px'></div>
+<button class='tgl' data-tv='tvRhFit'>Table view</button>
+<div class='cwrap tall'><canvas id='chRhFit'></canvas></div>
+<div class='tv' id='tvRhFit'></div></div>
+<div class='bx'><h2>Where each day sat on the clock</h2>
+<div class='desc' id='rhRibD'>First study open to last study signed, most recent day at the top.</div>
+<div class='leg'><span style='color:var(--good)'>&#10003; goal hit</span>
+<span style='color:var(--crit)'>&#10007; goal missed</span>
+<span>no mark &mdash; no goal was set that day</span></div>
+<button class='tgl' data-tv='tvRhRib'>Table view</button>
+<div class='cwrap' style='height:min(150vw,560px)'><canvas id='chRhRib'></canvas></div>
+<div class='tv' id='tvRhRib'></div></div>
+<div class='bx'><h2>A typical day, by weekday</h2>
+<div class='desc'>Median start and median finish for each weekday you work. The bar is the middle of your day.</div>
+<button class='tgl' data-tv='tvRhDow'>Table view</button>
+<div class='cwrap tall'><canvas id='chRhDow'></canvas></div>
+<div class='tv' id='tvRhDow'></div></div>
+<div class='bx'><h2>What the start time is worth</h2>
+<div class='desc'>How output, day length and drifting track your start time across this range</div>
+<div id='rhNotes' style='font-size:12.5px;line-height:1.75'></div></div></div></section>
+
+<section class='pane' id='p-bank'>
+<div id='bkOff' class='empty' style='display:none'>Rewards are switched off.</div>
+<div id='bkBody' style='display:none'>
+<div class='vault'><div>
+<div class='vLb'>In the bank</div><div class='vBig' id='bkBal'>$0</div>
+<div class='vSub' id='bkSub'></div></div>
+<div class='vSide' id='bkSide'></div></div>
+<div class='stit'>Today</div><div class='grid' id='bkToday'></div>
+<div class='bx'><h2>How it is worked out</h2>
+<div class='desc'>Two components, and the mix is the point &mdash; focus scales what the volume is worth,
+so neither one alone pays much.</div>
+<div id='bkFormula' class='formula'></div>
+<div id='bkNote' style='font-size:12.5px;color:var(--ink2);line-height:1.7;margin-top:14px'></div></div>
+<div class='bx'><h2>Earned per day</h2>
+<div class='desc' id='bkChartD'>What each day paid, split into the par half and the goal half</div>
+<button class='tgl' data-tv='tvBank'>Table view</button>
+<div class='cwrap tall'><canvas id='chBank'></canvas></div>
+<div class='tv' id='tvBank'></div></div>
+<div class='bx' id='bxCash' style='display:none'><h2>Cashed out</h2>
+<div class='desc'>Withdrawals you recorded from Tray &rarr; Rewards &rarr; Cash Out</div>
+<div id='bkCash'></div></div></div></section>
+
+<section class='pane' id='p-shifts'><div id='shEmpty' class='empty' style='display:none'>No shift data in this range.</div>
+<div id='shBody' style='display:none'>
+<div class='row2'>
+<div class='bx'><h2>IVU per block</h2><div class='desc'>Half-day and call blocks, attributed by sign time. * marks on-site.</div>
+<button class='tgl' data-tv='tvShift'>Table view</button><div class='cwrap tall'><canvas id='chShift'></canvas></div>
+<div class='tv' id='tvShift'></div></div>
+<div class='bx'><h2>IVU by weekday</h2><div class='desc'>Average IVU per worked day</div>
+<button class='tgl' data-tv='tvDow'>Table view</button><div class='cwrap tall'><canvas id='chDow'></canvas></div>
+<div class='tv' id='tvDow'></div></div></div>
+<div class='bx'><h2>Block breakdown</h2><div class='desc'>Volume, IVU and scheduled hours per block type</div>
+<div class='tblwrap'><table id='tSh'><thead><tr><th>Block</th><th>Blocks</th><th>Studies</th><th>Stud/blk</th>
+<th>Total IVU</th><th>IVU/blk</th><th>IVU/hr</th><th>Hrs</th><th>Site</th></tr></thead><tbody></tbody></table></div></div>
+<div class='bx' id='bxIns' style='display:none'><h2>Insights</h2><div class='desc'>Patterns detected in your history</div><ul class='ins' id='insList'></ul></div>
+<div class='row2'>
+<div class='bx'><h2>Modality mix by block</h2><div class='desc'>Average studies per block, split by modality</div>
+<div class='cwrap tall'><canvas id='chMix'></canvas></div></div>
+<div class='bx'><h2>IVU through the day</h2><div class='desc'>Average cumulative IVU by hour - the shape of each block</div>
+<div class='cwrap tall'><canvas id='chCum'></canvas></div></div></div>
+<div class='row2'>
+<div class='bx'><h2>Output across a work stretch</h2><div class='desc'>IVU per day by position in a consecutive-day run</div>
+<div class='cwrap'><canvas id='chFatI'></canvas></div></div>
+<div class='bx'><h2>Read time across a work stretch</h2><div class='desc'>Average seconds per study by position in the run</div>
+<div class='cwrap'><canvas id='chFatS'></canvas></div></div></div>
+<div class='bx'><h2>Block trend over time</h2><div class='desc'>IVU per block for one block type</div>
+<select id='shSel'></select><div class='cwrap'><canvas id='chShTrend'></canvas></div></div>
+<div class='bx' id='bxMod' style='display:none'><h2>Modifier impact</h2>
+<div class='desc'>Same block type, with vs without a concurrent modifier. Positive means more output with it.</div>
+<div class='tblwrap'><table id='tMod'><thead><tr><th>Modifier</th><th>Blocks with</th><th>IVU/blk with</th>
+<th>IVU/blk without</th><th>Delta</th></tr></thead><tbody></tbody></table></div></div>
+<div class='bx' id='bxXS' style='display:none'><h2>Same exam, different block</h2>
+<div class='desc'>Average read time for common exams by block context - reveals interruption cost</div>
+<div class='tblwrap'><table id='tXS'><thead></thead><tbody></tbody></table></div></div>
+<div class='bx' id='bxFc' style='display:none'><h2>Next 14 days</h2>
+<div class='desc'>From QGenda - per-block typicals with measured modifier deltas applied</div>
+<div id='fcSum' style='font-size:13px;color:#a9c8f5;font-weight:650;margin-bottom:12px'></div>
+<div class='tblwrap'><table id='tFc'><thead><tr><th>Date</th><th>Day</th><th>Blocks</th>
+<th>Exp. studies</th><th>Exp. IVU</th></tr></thead><tbody></tbody></table></div></div></div></section>
+
+<section class='pane' id='p-exams'><div class='stit'>Modality averages</div><div class='grid' id='mc'></div>
+<div class='bx'><h2>IVU efficiency by modality</h2><div class='desc'>IVU generated per minute of active reading</div>
+<button class='tgl' data-tv='tvEff'>Table view</button><div class='cwrap tall'><canvas id='chIVUEff'></canvas></div>
+<div class='tv' id='tvEff'></div></div>
+<div class='bx'><h2>Average time by study type</h2>
+<div class='desc'>Grouped by exam name. Filter by modality, tap a column header to sort, tap a row for its trend.</div>
+<select id='stModFilter'><option value='ALL'>All modalities</option><option value='CR'>X-Ray (CR)</option>
+<option value='CT'>CT</option><option value='MR'>MRI</option><option value='US'>Ultrasound</option><option value='PET'>PET/CT</option></select>
+<div class='tblwrap'><table id='tST'><thead><tr><th data-s='0'>Study type</th><th data-s='1'>Mod</th><th data-s='2'>Count</th>
+<th data-s='3'>Avg time</th><th data-s='4'>Avg IVU</th><th data-s='5'>IVU/min</th></tr></thead><tbody></tbody></table></div></div>
+<div class='bx'><h2>Study type trend</h2><div class='desc'>How your reading time changes over sessions</div>
+<select id='stSel'></select><div class='cwrap tall'><canvas id='chSTrend'></canvas></div></div></section>
+
+<section class='pane' id='p-log'>
+<div class='stit'>Records</div><div class='grid' id='rc'></div>
+<div class='bx'><h2>Daily volume by modality</h2><div class='desc'>Studies signed per day</div>
+<div class='cwrap tall'><canvas id='chVol'></canvas></div></div>
+<div class='bx'><h2>Daily IVU by modality</h2><div class='desc'>IVU produced per day</div>
+<div class='cwrap tall'><canvas id='chIVU'></canvas></div></div>
+<div class='row2'>
+<div class='bx'><h2>Active vs on-clock hours</h2><div class='desc'>Gaps over 30 min excluded from on-clock</div>
+<div class='cwrap'><canvas id='chEff'></canvas></div></div>
+<div class='bx'><h2>Studies per hour of day</h2><div class='desc'>When you read most - your peak hour is highlighted</div>
+<div class='cwrap'><canvas id='chHr'></canvas></div></div></div>
+<div class='row2'>
+<div class='bx'><h2>Studies per week</h2><div class='desc'>Volume by ISO week</div>
+<div class='cwrap'><canvas id='chWkN'></canvas></div></div>
+<div class='bx'><h2>Active hours per week</h2><div class='desc'>Reading time by ISO week</div>
+<div class='cwrap'><canvas id='chWkH'></canvas></div></div></div>
+<div class='bx'><h2>Daily log</h2><div class='desc'>Every worked day in range</div>
+<div class='tblwrap'><table id='tDH'><thead><tr><th>Date</th><th>Day</th><th>Studies</th><th>Active</th>
+<th>On-clock</th><th>Idle</th><th>Idle cost</th><th>Focus</th><th>IVU</th></tr></thead><tbody></tbody></table></div></div>
+<div class='bx'><h2>Recent studies</h2><div class='desc'>Last 40 signed</div>
+<div class='tblwrap'><table id='tR'><thead><tr><th>Time</th><th>Mod</th><th>Exam</th><th>Duration</th>
+<th>vs avg</th><th>IVU</th></tr></thead><tbody></tbody></table></div></div></section>
+<script>
+/*JS*/
+</script></body></html>

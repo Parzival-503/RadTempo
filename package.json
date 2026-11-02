@@ -1,0 +1,68 @@
+{
+  "name": "radtempo",
+  "productName": "RadTempo",
+  "version": "3.0.0",
+  "description": "Per-study reading timer, focus par, daily goals and wellness for the reading workstation.",
+  "author": "Avecina Studio",
+  "license": "MIT",
+  "private": true,
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "check:ahk": "python3 tools/ahk_check.py helper/RadTempoHelper.ahk",
+    "dist": "electron-builder --win nsis portable --x64 --publish never",
+    "test:e2e": "node tests-e2e/run.js"
+  },
+  "devDependencies": {
+    "electron": "44.6.0",
+    "electron-builder": "26.15.3",
+    "playwright": "1.56.1",
+    "chart.js": "4.4.0"
+  },
+  "build": {
+    "appId": "studio.avecina.radtempo",
+    "productName": "RadTempo",
+    "artifactName": "RadTempo-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**",
+      "assets/**",
+      "tools/dashboard/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "helper",
+        "to": "helper",
+        "filter": [
+          "*.ahk",
+          "*.exe",
+          "*.interpreter"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "artifactName": "RadTempo-Setup.${ext}",
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "shortcutName": "RadTempo",
+      "include": "build/installer.nsh"
+    },
+    "portable": {
+      "artifactName": "RadTempo-Portable.${ext}",
+      "unpackDirName": "RadTempo"
+    },
+    "copyright": "Copyright © Avecina Studio"
+  }
+}

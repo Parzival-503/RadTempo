@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>RadTempo</title>
+<link rel="stylesheet" href="../common/theme.css">
+<link rel="stylesheet" href="widget.css">
+</head>
+<body>
+<div id="stage">
+  <div id="banner" class="banner" hidden>
+    <span class="dot-mod"></span>
+    <span id="bannerText" class="btext"></span>
+    <span id="bannerIvu" class="bivu num"></span>
+  </div>
+  <div id="card" class="card idle">
+    <div class="glow"></div>
+    <div class="top">
+      <div class="left">
+        <div class="clockrow">
+          <span id="dot" class="sdot"></span>
+          <span id="clock" class="clock num">--:--</span>
+        </div>
+        <div id="status" class="status">READY</div>
+      </div>
+      <div class="stats">
+        <button id="slot" class="stat" title="Today's studies">
+          <span id="slotLabel" class="slabel">EXAMS</span>
+          <span id="slotValue" class="svalue num">0</span>
+        </button>
+        <button id="ivuStat" class="stat" title="Today's IVU - click for the breakdown">
+          <span id="ivuLabel" class="slabel">IVU</span>
+          <span class="svalue ivu num"><span id="ivu">0.0</span></span>
+        </button>
+      </div>
+    </div>
+    <div class="bottom">
+      <div id="mods" class="seg" role="radiogroup" aria-label="Modality"></div>
+      <div class="actions">
+        <button id="aForecast" class="act" title="Forecast IVU from the studies selected in the PACS worklist"></button>
+        <button id="aPaste" class="act" title="Forecast from text pasted out of Snipping Tool (PowerScribe lists)"></button>
+        <button id="aReset" class="act reset" title="Reset the current timer"></button>
+        <button id="aMenu" class="act" title="Menu (or right-click anywhere)"></button>
+      </div>
+    </div>
+    <div class="track"><div id="bar" class="bar"></div></div>
+  </div>
+</div>
+<script src="../common/icons.js"></script>
+<script src="widget.js"></script>
+</body>
+</html>
