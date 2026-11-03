@@ -33,17 +33,6 @@ const AT_LOGIN = process.argv.includes('--at-login');
 
 if (process.env.RT_USER_DATA) app.setPath('userData', process.env.RT_USER_DATA);
 if (process.env.RT_SOFTWARE_GL) app.disableHardwareAcceleration();
-// This PC's own folder under the app's earlier name (widget position, the
-// data-folder choice, perhaps the history): carried over once, then the data
-// files get their RadTempo names when the store first opens the folder.
-if (!process.env.RT_USER_DATA) {
-  try {
-    const { EARLIER } = require('../engine/store');
-    const was = path.join(app.getPath('appData'), EARLIER);
-    const now = app.getPath('userData');
-    if (fs.existsSync(was) && !fs.existsSync(path.join(now, 'location.json'))) fs.cpSync(was, now, { recursive: true, force: false, errorOnExist: false });
-  } catch (_) {}
-}
 if (!app.requestSingleInstanceLock()) app.quit();
 app.setAppUserModelId('studio.avecina.radtempo');
 
@@ -505,6 +494,7 @@ function settingsData() {
     helper: supervisor ? supervisor.status() : null,
     ivuRows: core.ivuTable().size(),
     earlierLeft: earlierLeft(folder.dir()),
+    reading: (() => { const r = store.logRows(); return { studies: r.length, first: r.length ? r[0][1] : '', last: r.length ? r[r.length - 1][1] : '' }; })(),
   };
 }
 

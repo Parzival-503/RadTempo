@@ -370,6 +370,7 @@
     } else if (settingsTab === 'Data') {
       inner = `
         <div class="set wide"><div class="lbl">Data folder</div><div class="path">${esc(d.dataDir)}</div>
+          <div class="help" id="reading">${d.reading && d.reading.studies ? `Reading <b>${d.reading.studies}</b> studies here, ${esc(d.reading.first)} to ${esc(d.reading.last)}.` : '<b>No studies in this folder.</b> If your history is elsewhere, use another folder below.'}</div>
           <div class="help">The log, goals, IVU table, rewards and settings live here, in the same files the classic RadTempo used. Point it at a OneDrive folder and every workstation shares one history.</div>
           <div class="ctl" style="justify-content:flex-start;gap:8px;margin-top:6px"><button class="btn small" id="open">${icon('folder')}Open</button><button class="btn small" id="choose">Use another folder…</button><button class="btn small" id="imp">Copy in from the classic version…</button></div></div>
         <div class="set wide"><div class="lbl">File names</div>
