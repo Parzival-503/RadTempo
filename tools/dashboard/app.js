@@ -265,7 +265,64 @@ renderRhythm(dates);
 renderBank(dates,DH);
 renderShifts(dates,DH,hasShift,BK,SH,shArr,modRows,mods);
 renderExams(mods);
-renderLog(dates,DH,mods);}
+renderLog(dates,DH,mods);
+renderCalendar();}
+/* ---------------- CALENDAR ----------------
+   Every day of every month as a heat map of the day's IVU (one hue, dim to
+   bright, in four steps cut at the quartiles of all worked days, so a step
+   means the same thing in every month), and the months side by side.
+   On-call days are the overnight block that starts at midnight (12a-7a),
+   found in the QGenda schedule or the study's own shift; they carry a moon
+   and a white ring, never colour alone. */
+var CALLRE=/\b12\s*a(?:m)?\s*[-\u2013]\s*7\s*a(?:m)?\b/i;
+function isCall(raw,rows){if(HASSH&&SHIFTS[raw]&&CALLRE.test(SHIFTS[raw]))return true;
+return (rows||[]).some(function(d){return CALLRE.test(d.shift||'');});}
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function renderCalendar(){
+var byDay={};D.forEach(function(d){(byDay[d.date]=byDay[d.date]||[]).push(d);});
+var days=Object.keys(byDay).sort(),tot={};
+days.forEach(function(k){tot[k]=sumIvu(byDay[k]);});
+var vals=days.map(function(k){return tot[k];}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;});
+var q=function(p){return vals.length?vals[Math.min(vals.length-1,Math.floor(p*(vals.length-1)))]:0;};
+var c1=q(.25),c2=q(.5),c3=q(.75);
+var bin=function(v){return v<=0?0:v<=c1?1:v<=c2?2:v<=c3?3:4;};
+var r0=function(v){return Math.round(v);};
+el('calLeg').innerHTML='<span>IVU per day:</span><span><i style="background:#184f95"></i>up to '+r0(c1)+'</span>'+
+'<span><i style="background:#2a78d6"></i>'+r0(c1)+'&ndash;'+r0(c2)+'</span><span><i style="background:#5598e7"></i>'+r0(c2)+'&ndash;'+r0(c3)+'</span>'+
+'<span><i style="background:#9ec5f4"></i>over '+r0(c3)+'</span><span>&#9790; on call (12a&ndash;7a)</span>';
+/* months: from the first logged month to this month, newest first */
+var first=days[0]?new Date(+days[0].slice(0,4),+days[0].slice(5,7)-1,1):new Date(),now=new Date();
+var mons=[];for(var m=new Date(first);m<=new Date(now.getFullYear(),now.getMonth(),1);m=new Date(m.getFullYear(),m.getMonth()+1,1))mons.push(m);
+var stats=mons.map(function(m){var y=m.getFullYear(),mo=m.getMonth(),ivu=0,n=0,wd=0,calls=0,callIvu=0;
+var last=new Date(y,mo+1,0).getDate();
+for(var d=1;d<=last;d++){var k=y+'-'+String(mo+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'),raw=(mo+1)+'/'+d+'/'+y;
+var rows=byDay[k]||[],v=tot[k]||0,c=isCall(raw,rows);
+if(v>0){ivu+=v;wd++;}n+=rows.length;if(c&&rows.length){calls++;callIvu+=v;}}
+return{m:m,ivu:ivu,n:n,wd:wd,calls:calls,callIvu:callIvu,per:wd?ivu/wd:0};});
+/* month strip: total and change against the month before */
+var thisM=new Date(now.getFullYear(),now.getMonth(),1).getTime();
+var ch=function(cur,prev){if(cur.m.getTime()===thisM)return '<span class="eq">so far this month</span>';if(!prev||!prev.ivu)return '<span class="eq">first month</span>';
+var p=Math.round((cur.ivu-prev.ivu)/prev.ivu*100);
+return p>0?'<span class="up">&#9650; '+p+'% vs '+MONTHS[prev.m.getMonth()].slice(0,3)+'</span>':p<0?'<span class="dn">&#9660; '+(-p)+'% vs '+MONTHS[prev.m.getMonth()].slice(0,3)+'</span>':'<span class="eq">same as '+MONTHS[prev.m.getMonth()].slice(0,3)+'</span>';};
+el('mStrip').innerHTML=stats.map(function(s,i){return '<div class="mChip">'+MONTHS[s.m.getMonth()].slice(0,3)+' '+s.m.getFullYear()+
+'<b>'+r0(s.ivu)+' IVU</b>'+ch(s,stats[i-1])+'<div style="font-size:11px;color:var(--mut)">'+s.wd+' days &middot; '+r0(s.per)+'/day'+(s.calls?' &middot; &#9790; '+s.calls:'')+'</div></div>';}).reverse().join('');
+mk('chMon',{type:'bar',data:{labels:stats.map(function(s){return MONTHS[s.m.getMonth()].slice(0,3)+' '+String(s.m.getFullYear()).slice(2);}),
+datasets:[{label:'IVU',data:stats.map(function(s){return Math.round(s.ivu*10)/10;}),backgroundColor:'#3987e5',...BAR}]},
+options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var s=stats[c.dataIndex];
+return [r0(s.ivu)+' IVU in '+s.wd+' days ('+r0(s.per)+'/day)',s.n+' studies'].concat(s.calls?[s.calls+' on-call days, '+r0(s.callIvu)+' IVU']:[]);}}}},
+scales:{y:ax('IVU'),x:axX()}}});
+/* the month grids, newest first */
+var todayK=ymd(now),DN=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+el('calMonths').innerHTML='<div class="calGrid">'+stats.slice().reverse().map(function(s){var y=s.m.getFullYear(),mo=s.m.getMonth();
+var lead=(new Date(y,mo,1).getDay()+6)%7,last=new Date(y,mo+1,0).getDate(),h='';
+for(var i=0;i<lead;i++)h+='<div class="cd b0"></div>';
+for(var d=1;d<=last;d++){var k=y+'-'+String(mo+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'),raw=(mo+1)+'/'+d+'/'+y;
+var rows=byDay[k]||[],v=tot[k]||0,c=isCall(raw,rows),fut=k>todayK;
+var tip=DN[(lead+d-1)%7]+' '+raw+(v>0?': '+(Math.round(v*10)/10)+' IVU, '+rows.length+' studies':fut?'':': no reading')+(c?' · on call (12a–7a)':'');
+h+='<div class="cd b'+bin(v)+(c?' call':'')+(k===todayK?' td':'')+(fut?' fut':'')+'" title="'+esc(tip)+'"><span class="n">'+d+'</span>'+
+(c?'<span class="mn" aria-label="on call">&#9790;</span>':'')+(v>0?'<span class="v">'+r0(v)+'</span>':'')+'</div>';}
+return '<div class="bx mon"><h3>'+MONTHS[mo]+' '+y+'</h3><div class="msub">'+r0(s.ivu)+' IVU &middot; '+s.wd+' days &middot; '+r0(s.per)+'/day'+
+(s.calls?' &middot; &#9790; '+s.calls+' on call':'')+'</div><div class="wk">'+DN.map(function(x){return '<div class="dh">'+x.slice(0,2)+'</div>';}).join('')+h+'</div></div>';}).join('')+'</div>';}
 /* ---------------- TODAY ---------------- */
 function renderToday(DH,shArr,BK,modRows){
 var tr=V.filter(function(d){return d.date===TODAY;});
@@ -1234,13 +1291,14 @@ b.onclick=function(){Array.prototype.forEach.call(document.querySelectorAll('#ta
 x.setAttribute('aria-selected',x===b?'true':'false');});
 Array.prototype.forEach.call(document.querySelectorAll('.pane'),function(p){
 p.classList.toggle('on',p.id==='p-'+b.getAttribute('data-p'));});
+showRange(b.getAttribute('data-p'));
 window.scrollTo({top:0,behavior:'smooth'});};});
+/* The range only shapes the history pages: Today is one day, Calendar is every month. */
+function showRange(p){el('fRow').style.display=(p==='today'||p==='calendar')?'none':'';}
 Array.prototype.forEach.call(document.querySelectorAll('#rng button'),function(b){
 b.onclick=function(){RANGE=+b.getAttribute('data-d');
 Array.prototype.forEach.call(document.querySelectorAll('#rng button'),function(x){
-x.setAttribute('aria-pressed',x===b?'true':'false');});render();
-/* Today is always just today: a range is shown on the history tabs */
-var td=document.getElementById('p-today');if(td&&td.classList.contains('on')){var fb=document.querySelector('#tabs button[data-p="focus"]');if(fb)fb.click();}};});
+x.setAttribute('aria-pressed',x===b?'true':'false');});render();};});
 document.addEventListener('click',function(e){var t=e.target;
 if(t&&t.classList&&t.classList.contains('tgl')){var id=t.getAttribute('data-tv'),n=el(id);
 if(n){n.classList.toggle('on');t.textContent=n.classList.contains('on')?'Hide table':'Table view';}}});
