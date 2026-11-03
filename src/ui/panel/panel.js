@@ -372,6 +372,10 @@
         <div class="set wide"><div class="lbl">Data folder</div><div class="path">${esc(d.dataDir)}</div>
           <div class="help">The log, goals, IVU table, rewards and settings live here, in the same files the classic RadTempo used. Point it at a OneDrive folder and every workstation shares one history.</div>
           <div class="ctl" style="justify-content:flex-start;gap:8px;margin-top:6px"><button class="btn small" id="open">${icon('folder')}Open</button><button class="btn small" id="choose">Use another folder…</button><button class="btn small" id="imp">Copy in from the classic version…</button></div></div>
+        <div class="set wide"><div class="lbl">File names</div>
+          <div class="help">${d.earlierLeft && d.earlierLeft.length ? `<b>${d.earlierLeft.length} file${d.earlierLeft.length === 1 ? '' : 's'} still have the app's earlier name</b> (${esc(d.earlierLeft.join(', '))}), so RadTempo cannot see them.` : 'Every data file has its RadTempo name.'}</div>
+          <div class="ctl" style="justify-content:flex-start;gap:8px;margin-top:6px"><button class="btn small ${d.earlierLeft && d.earlierLeft.length ? 'primary' : ''}" id="fixnames">${icon('check')}Fix file names</button></div>
+          ${d.fixMsg ? `<div class="note ${d.fixFailed ? 'warn' : ''}" id="fixmsg">${esc(d.fixMsg)}</div>` : ''}</div>
         <div class="err" id="err"></div>`;
     } else {
       inner = d.fields
@@ -415,6 +419,7 @@
       V.settings(d);
     });
     on('ivu', async () => render(await act('importIvu')));
+    on('fixnames', async () => render(await act('fixNames')));
     on('open', () => act('openFolder'));
     on('choose', async () => {
       const r = await act('chooseFolder');

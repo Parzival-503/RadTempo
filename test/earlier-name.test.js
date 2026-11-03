@@ -42,3 +42,34 @@ test('copying a history in from an earlier-named folder gives RadTempo names', (
   assert.deepStrictEqual(importFrom(src, dest), [FILES.log]);
   assert.ok(fs.existsSync(path.join(dest, FILES.log)));
 });
+
+test('Fix file names: lists what is left, renames it, and names any file it could not take over', () => {
+  const { earlierLeft } = require('../src/engine/store');
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-fix-'));
+  for (const k of ['log', 'goals', 'adjust', 'shifts', 'ini']) fs.writeFileSync(path.join(d, old(FILES[k])), k);
+  fs.writeFileSync(path.join(d, FILES.ivu), 'already renamed');
+  assert.deepStrictEqual(earlierLeft(d).sort(), ['log', 'goals', 'adjust', 'shifts', 'ini'].map((k) => old(FILES[k])).sort());
+  const failed = [];
+  const taken = adoptEarlier(d, failed);
+  assert.strictEqual(taken.length, 5);
+  assert.deepStrictEqual(failed, []);
+  assert.deepStrictEqual(earlierLeft(d), [], 'nothing left');
+  assert.strictEqual(fs.readFileSync(path.join(d, FILES.ivu), 'utf8'), 'already renamed');
+});
+
+test('a file that cannot be taken over is reported, not skipped silently', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-fix2-'));
+  fs.writeFileSync(path.join(d, old(FILES.log)), 'x');
+  const realRename = fs.renameSync;
+  const realCopy = fs.copyFileSync;
+  fs.renameSync = () => { const e = new Error('busy'); e.code = 'EBUSY'; throw e; };
+  fs.copyFileSync = () => { const e = new Error('busy'); e.code = 'EBUSY'; throw e; };
+  try {
+    const failed = [];
+    assert.deepStrictEqual(adoptEarlier(d, failed), []);
+    assert.deepStrictEqual(failed, [{ file: old(FILES.log), error: 'EBUSY' }]);
+  } finally {
+    fs.renameSync = realRename;
+    fs.copyFileSync = realCopy;
+  }
+});

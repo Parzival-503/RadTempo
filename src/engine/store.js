@@ -35,8 +35,11 @@ const EARLIER = 'RadStopwatch';
 const earlierName = (f) => f.replace(/^RadTempo/, EARLIER);
 
 // Rename earlier-named files in d to their RadTempo names (never over a
-// RadTempo file already there). Returns the names taken over.
-function adoptEarlier(d) {
+// RadTempo file already there). A file that will not rename (open in Excel,
+// held by a sync program) is copied instead. Returns the names taken over;
+// `failed`, when given, collects { file, error } for each one that could not
+// be renamed or copied, so the app can say which and why.
+function adoptEarlier(d, failed) {
   const taken = [];
   for (const f of Object.values(FILES)) {
     const a = path.join(d, earlierName(f));
@@ -44,16 +47,25 @@ function adoptEarlier(d) {
     if (!fs.existsSync(a) || fs.existsSync(b)) continue;
     try {
       fs.renameSync(a, b);
-    } catch (_) {
+    } catch (e1) {
       try {
-        fs.copyFileSync(a, b); // renaming refused (file open elsewhere): copy instead
-      } catch (_) {
+        fs.copyFileSync(a, b);
+      } catch (e2) {
+        if (failed) failed.push({ file: earlierName(f), error: String((e2 && e2.code) || (e1 && e1.code) || e2) });
         continue;
       }
     }
     taken.push(f);
   }
   return taken;
+}
+
+// Earlier-named files in d that have no RadTempo file yet (what "Fix file
+// names" would take over).
+function earlierLeft(d) {
+  return Object.values(FILES)
+    .filter((f) => fs.existsSync(path.join(d, earlierName(f))) && !fs.existsSync(path.join(d, f)))
+    .map(earlierName);
 }
 
 const LOG_HEADER = 'Timestamp,Date,DayOfWeek,Hour,Seconds,Formatted,Modality,DailyStudyNum,ExamText,IVU,Shift,Extras,ActiveSec,ParSec,ProcCode,IVUSrc';
@@ -179,4 +191,4 @@ function createStore(dirFn) {
   };
 }
 
-module.exports = { createStore, FILES, LOG_HEADER, EARLIER, earlierName, adoptEarlier };
+module.exports = { createStore, FILES, LOG_HEADER, EARLIER, earlierName, adoptEarlier, earlierLeft };
