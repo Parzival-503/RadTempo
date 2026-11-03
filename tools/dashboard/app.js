@@ -1238,7 +1238,9 @@ window.scrollTo({top:0,behavior:'smooth'});};});
 Array.prototype.forEach.call(document.querySelectorAll('#rng button'),function(b){
 b.onclick=function(){RANGE=+b.getAttribute('data-d');
 Array.prototype.forEach.call(document.querySelectorAll('#rng button'),function(x){
-x.setAttribute('aria-pressed',x===b?'true':'false');});render();};});
+x.setAttribute('aria-pressed',x===b?'true':'false');});render();
+/* Today is always just today: a range is shown on the history tabs */
+var td=document.getElementById('p-today');if(td&&td.classList.contains('on')){var fb=document.querySelector('#tabs button[data-p="focus"]');if(fb)fb.click();}};});
 document.addEventListener('click',function(e){var t=e.target;
 if(t&&t.classList&&t.classList.contains('tgl')){var id=t.getAttribute('data-tv'),n=el(id);
 if(n){n.classList.toggle('on');t.textContent=n.classList.contains('on')?'Hide table':'Table view';}}});
