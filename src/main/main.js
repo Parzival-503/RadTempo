@@ -421,7 +421,10 @@ function openPanel(view, args = {}) {
 
 function placePanel(w, view, pw, ph) {
   const r = cardRect();
-  const d = screen.getDisplayMatching(r);
+  // Pop-overs belong to the timer and open beside it. Every other dialog
+  // opens on the screen the mouse is on: the one just clicked (the tray, the
+  // menu), which is not always the timer's screen.
+  const d = POPOVERS.has(view) ? screen.getDisplayMatching(r) : screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const wa = d.workArea;
   let x;
   let y;
@@ -561,7 +564,7 @@ function openDashboard() {
     dashWin.focus();
     return;
   }
-  const wa = screen.getDisplayMatching(cardRect()).workArea;
+  const wa = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
   dashWin = new BrowserWindow({
     width: Math.min(1320, wa.width - 40),
     height: Math.min(900, wa.height - 40),
