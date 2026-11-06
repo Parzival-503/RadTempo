@@ -28,59 +28,11 @@ const FILES = {
   dashboard: 'RadTempo_Dashboard.html',
 };
 
-// The name this app had before RadTempo. A data folder still holding files
-// under that name has them renamed to the RadTempo names, once, the first
-// time it is used, so an existing history carries over untouched.
-const EARLIER = 'RadStopwatch';
-const earlierName = (f) => f.replace(/^RadTempo/, EARLIER);
-
-// Rename earlier-named files in d to their RadTempo names (never over a
-// RadTempo file already there). A file that will not rename (open in Excel,
-// held by a sync program) is copied instead. Returns the names taken over;
-// `failed`, when given, collects { file, error } for each one that could not
-// be renamed or copied, so the app can say which and why.
-function adoptEarlier(d, failed) {
-  const taken = [];
-  for (const f of Object.values(FILES)) {
-    const a = path.join(d, earlierName(f));
-    const b = path.join(d, f);
-    if (!fs.existsSync(a) || fs.existsSync(b)) continue;
-    try {
-      fs.renameSync(a, b);
-    } catch (e1) {
-      try {
-        fs.copyFileSync(a, b);
-      } catch (e2) {
-        if (failed) failed.push({ file: earlierName(f), error: String((e2 && e2.code) || (e1 && e1.code) || e2) });
-        continue;
-      }
-    }
-    taken.push(f);
-  }
-  return taken;
-}
-
-// Earlier-named files in d that have no RadTempo file yet (what "Fix file
-// names" would take over).
-function earlierLeft(d) {
-  return Object.values(FILES)
-    .filter((f) => fs.existsSync(path.join(d, earlierName(f))) && !fs.existsSync(path.join(d, f)))
-    .map(earlierName);
-}
-
 const LOG_HEADER = 'Timestamp,Date,DayOfWeek,Hour,Seconds,Formatted,Modality,DailyStudyNum,ExamText,IVU,Shift,Extras,ActiveSec,ParSec,ProcCode,IVUSrc';
 
 function createStore(dirFn) {
   const dir = typeof dirFn === 'function' ? dirFn : () => dirFn;
-  const adopted = new Set();
-  const file = (k) => {
-    const d = dir();
-    if (!adopted.has(d)) {
-      adopted.add(d);
-      adoptEarlier(d);
-    }
-    return path.join(d, FILES[k] || k);
-  };
+  const file = (k) => path.join(dir(), FILES[k] || k);
   let cache = { key: '', lines: [] };
   let pending = []; // rows that could not be written (file locked by Excel)
 
@@ -191,4 +143,4 @@ function createStore(dirFn) {
   };
 }
 
-module.exports = { createStore, FILES, LOG_HEADER, EARLIER, earlierName, adoptEarlier, earlierLeft };
+module.exports = { createStore, FILES, LOG_HEADER };

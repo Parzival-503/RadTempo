@@ -284,25 +284,6 @@ async function main() {
         await sleep(250);
         await shot(w, `17-panel-settings-${tab.toLowerCase()}`);
       }
-      // Settings > Data > Fix file names takes over a file still under the
-      // app's earlier name (it reappeared after the folder was opened).
-      {
-        const { EARLIER } = require('../src/engine/store');
-        const newF = path.join(dataDir, 'RadTempo_Rewards.csv');
-        const oldF = path.join(dataDir, EARLIER + '_Rewards.csv');
-        const had = fs.existsSync(newF) ? fs.readFileSync(newF) : null;
-        if (had) fs.unlinkSync(newF);
-        fs.writeFileSync(oldF, 'Date,Amount,Note\n2026-11-01,5.00,e2e\n');
-        await w.click('.tabs [data-t="General"]');
-        await sleep(150);
-        await w.click('.tabs [data-t="Data"]');
-        await sleep(250);
-        await w.click('#fixnames');
-        await sleep(600);
-        const msg = await w.$eval('#fixmsg', (e) => e.textContent).catch(() => '');
-        ok(fs.existsSync(newF) && !fs.existsSync(oldF) && /Renamed 1/.test(msg), 'Settings > Data > Fix file names renames a file left under the earlier name');
-        if (had) fs.writeFileSync(newF, had);
-      }
       await w.click('.tabs [data-t="Goals"]');
       await sleep(200);
       const inp = await w.$('.set[data-k="GoalStep"] input');
@@ -376,10 +357,18 @@ async function main() {
     await sleep(2600);
     s = await state();
     ok(s.view.running && s.view.mod === 'CR', 'second study detected as CR');
-    await widget.click('#aReset');
+    // A slow click: pressed, held while the widget redraws (once a second),
+    // then released. It used to be lost, so reset took several tries.
+    {
+      const r = await widget.$eval('#aReset', (e) => { const b = e.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; });
+      await widget.mouse.move(r.x, r.y);
+      await widget.mouse.down();
+      await sleep(1300);
+      await widget.mouse.up();
+    }
     await sleep(400);
     s = await state();
-    ok(!s.view.running && s.view.count === 1, 'reset cancels the study without logging it');
+    ok(!s.view.running && s.view.count === 1, 'reset cancels the study without logging it, even with a slow click across a redraw');
   }
 
   console.log('dashboard');

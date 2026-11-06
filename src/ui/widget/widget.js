@@ -4,6 +4,16 @@
   const card = $('card');
   const banner = $('banner');
   let last = null;
+  // The view is pushed every second. Rewriting a button's inside each time
+  // replaced the element under the mouse between press and release, and the
+  // click was lost (it took a few tries to reset the timer). Write only when
+  // it changes.
+  const setHtml = (node, html) => {
+    if (node.dataset.html !== html) {
+      node.innerHTML = html;
+      node.dataset.html = html;
+    }
+  };
 
   $('aForecast').innerHTML = icon('sigma');
   $('aPaste').innerHTML = icon('paste');
@@ -103,10 +113,10 @@
     $('ivu').textContent = v.ivu;
     const il = $('ivuLabel');
     if (v.goal > 0) {
-      il.innerHTML = `<span class="pill ${v.goalPct >= 100 ? 'met' : ''}">${v.goalPct}%</span>`;
+      setHtml(il, `<span class="pill ${v.goalPct >= 100 ? 'met' : ''}">${v.goalPct}%</span>`);
       $('ivuStat').title = `Today's IVU: ${v.goalPct}% of your ${v.goal} goal - click for the breakdown`;
     } else {
-      il.textContent = 'IVU';
+      setHtml(il, 'IVU');
       $('ivuStat').title = 'Today’s IVU - click for the breakdown';
     }
 
@@ -118,7 +128,7 @@
 
     const rb = $('aReset');
     rb.classList.toggle('undo', !!v.undo);
-    rb.innerHTML = v.undo ? icon('close') : icon('undo');
+    setHtml(rb, v.undo ? icon('close') : icon('undo'));
     rb.title = v.undo ? 'Undo that sign (removes it from the log)' : 'Reset the current timer (nothing is logged)';
 
     const bar = $('bar');

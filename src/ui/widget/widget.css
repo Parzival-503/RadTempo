@@ -60,7 +60,9 @@
 .act { width: 25px; height: 23px; display: grid; place-items: center; border-radius: 7px; color: var(--mut); background: rgba(255,255,255,.035); transition: background .15s, color .15s, transform .1s; }
 .act:hover { color: var(--ink); background: rgba(255,255,255,.1); }
 .act:active { transform: scale(.94); }
-.act svg.i { width: 15px; height: 15px; stroke-width: 2; }
+.act svg.i { width: 15px; height: 15px; stroke-width: 2; pointer-events: none; }
+/* the icon is never the click target: a click always lands on the button */
+.act * , #ivuStat * { pointer-events: none; }
 .act.reset { color: #ff9aa9; }
 .act.undo { color: #fff; background: rgba(229,72,77,.35); }
 .act.undo:hover { background: rgba(229,72,77,.55); }

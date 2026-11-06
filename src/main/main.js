@@ -16,7 +16,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
-const { createStore, FILES, adoptEarlier, earlierLeft } = require('../engine/store');
+const { createStore, FILES } = require('../engine/store');
 const { createSettings, FIELDS } = require('../engine/settings');
 const { createCore } = require('../engine/core');
 const { buildHtml } = require('../engine/dashboard');
@@ -493,7 +493,6 @@ function settingsData() {
     version: app.getVersion(),
     helper: supervisor ? supervisor.status() : null,
     ivuRows: core.ivuTable().size(),
-    earlierLeft: earlierLeft(folder.dir()),
     reading: (() => { const r = store.logRows(); return { studies: r.length, first: r.length ? r[0][1] : '', last: r.length ? r[r.length - 1][1] : '' }; })(),
   };
 }
@@ -950,19 +949,6 @@ async function panelDo(view, action, p = {}) {
       toast(`Copied ${copied.length} file${copied.length === 1 ? '' : 's'} from the classic RadTempo.`, 3500, 'good');
       return view === 'welcome' ? finishWelcome() : settingsData();
     }
-    case 'fixNames': {
-      // Give files still under the app's earlier name their RadTempo names.
-      const failed = [];
-      const taken = adoptEarlier(folder.dir(), failed);
-      store.invalidate();
-      reloadEverything();
-      logEvent('fix-names', `renamed ${taken.length}, failed ${failed.map((x) => x.file + ' ' + x.error).join('; ')}`);
-      const msg = failed.length
-        ? `Renamed ${taken.length}. Could not rename ${failed.map((x) => x.file).join(', ')} (${failed[0].error}): close Excel and the old app, wait for OneDrive to finish syncing, then try again.`
-        : taken.length ? `Renamed ${taken.length} file${taken.length === 1 ? '' : 's'}: your history is back.` : 'Nothing to rename: every file already has its RadTempo name.';
-      toast(msg, failed.length ? 7000 : 3500, failed.length ? 'warn' : 'good');
-      return { ...settingsData(), fixMsg: msg, fixFailed: failed.length > 0 };
-    }
     case 'importIvu': {
       const r = await dialog.showOpenDialog(panels.get(view), { title: 'Choose the IVU table (RadTempo_IVU.csv)', filters: [{ name: 'CSV', extensions: ['csv'] }], properties: ['openFile'] });
       if (r.canceled || !r.filePaths[0]) return settingsData();
@@ -1201,19 +1187,6 @@ app.whenReady().then(async () => {
 
   if (!folder.isSetUp()) openPanel('welcome');
   else if (!AT_LOGIN && !E2E) toast('RadTempo is running. Right-click the timer for everything else.', 3500);
-  // Files left under the app's earlier name (a rename that failed while they
-  // were busy): try again now, and say so if some still will not move.
-  if (earlierLeft(folder.dir()).length) {
-    const failed = [];
-    adoptEarlier(folder.dir(), failed);
-    if (failed.length) {
-      logEvent('fix-names', failed.map((x) => x.file + ' ' + x.error).join('; '));
-      setTimeout(() => toast(`${failed.length} history file${failed.length === 1 ? '' : 's'} still have the old name. Settings > Data > Fix file names.`, 8000, 'warn'), 1500);
-    } else {
-      store.invalidate();
-      reloadEverything();
-    }
-  }
   logEvent('ready', `data=${folder.dir()}`);
   if (process.env.RT_HEARTBEAT) setInterval(() => logEvent('alive', `helper ${supervisor.status().connected ? 'connected' : 'NOT connected'}`), 5000);
 });

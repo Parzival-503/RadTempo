@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { FILES, EARLIER, earlierName } = require('../engine/store');
+const { FILES } = require('../engine/store');
 const { readText } = require('../engine/util');
 
 function createDataFolder(appDir) {
@@ -46,14 +46,12 @@ function createDataFolder(appDir) {
   return { dir, setDir, isSetUp, markSetUp, appDir };
 }
 
-// A data file in d: its RadTempo name, else its earlier name, else null.
+// A data file in d, or null.
 function inFolder(d, f) {
-  for (const n of [f, earlierName(f)]) if (fs.existsSync(path.join(d, n))) return path.join(d, n);
-  return null;
+  return fs.existsSync(path.join(d, f)) ? path.join(d, f) : null;
 }
 
-// Summary of a folder that holds RadTempo files (or files under the earlier
-// name, taken over when the folder is used), or null.
+// Summary of a folder that holds RadTempo files, or null.
 function describe(d) {
   const log = inFolder(d, FILES.log);
   if (!log) return null;
@@ -80,7 +78,6 @@ function candidates(extra = [], env = process.env) {
     add(path.join(home, 'Desktop'));
     add(path.join(home, 'Documents', 'Apps', 'Radiology'));
     add(path.join(home, 'Documents', 'Apps', 'Radiology', 'RadTempo'));
-    add(path.join(home, 'Documents', 'Apps', 'Radiology', EARLIER));
     add(home);
     try {
       for (const d of fs.readdirSync(home)) if (/^OneDrive/i.test(d)) add(path.join(home, d));
@@ -105,7 +102,7 @@ function candidates(extra = [], env = process.env) {
     for (const s of subs.slice(0, 200)) {
       const p1 = path.join(r, s.name);
       look(p1);
-      if (/radtempo|script|radiology|apps/i.test(s.name) || s.name.toLowerCase() === EARLIER.toLowerCase()) {
+      if (/radtempo|script|radiology|apps/i.test(s.name)) {
         try {
           for (const e of fs.readdirSync(p1, { withFileTypes: true })) if (e.isDirectory()) look(path.join(p1, e.name));
         } catch (_) {}
